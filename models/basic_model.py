@@ -83,7 +83,7 @@ class BasicModel(object):
         # I like to separate the function to train per epoch and the function to train globally
         raise Exception('The learn_from_epoch function must be overriden by the agent')
 
-    def train(self, dataset: Dataset, save_every=1, epoch_to_restart=-1, train_until=float("inf")):
+    def train(self, dataset: Dataset, save_every=10, epoch_to_restart=-1, train_until=float("inf")):
         # This function is usually common to all your models, Here is an example:
         for epoch_id in range(max(0, epoch_to_restart), min(self.max_epoch, train_until)):
             self.learn_from_epoch(dataset)
@@ -108,9 +108,6 @@ class BasicModel(object):
 
         # I always keep the configuration
         if not os.path.isfile(self.result_dir + '/config.json'):
-            config = self.config
-            if 'phi' in config:
-                del config['phi']
             with open(self.result_dir + '/config.json', 'w') as f:
                 json.dump(self.config, f)
 
