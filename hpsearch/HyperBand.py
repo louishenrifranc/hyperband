@@ -105,10 +105,12 @@ class CIFARHyperband(HyperBand):
             new_config_name = os.path.basename(self.default_config["result_dir"]) + json.dumps(new_config)
             new_config["result_dir"] = new_config_name
 
+            # Create a new model and build it
             new_model = CIFARModel(new_config)
             graph = tf.Graph()
             new_model.build_graph(graph)
 
+            # Set accuracy to 0.0
             models[new_config_name] = (new_model, 0.0)
         return models
 
