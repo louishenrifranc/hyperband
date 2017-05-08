@@ -11,11 +11,11 @@ class CIFARModel(BasicModel):
         BasicModel.__init__(self, config)
 
     def set_model_props(self):
-        self.W = self.config['W']
-        self.H = self.config['H']
+        self.W = 32
+        self.H = 32
+        self.nb_labels = 10
 
         self.use_batch_norm = self.config['batch_norm']
-        self.nb_labels = 10
 
     def build_graph(self, graph):
         with graph.as_default():
@@ -60,7 +60,7 @@ class CIFARModel(BasicModel):
                                   var_list=tf.trainable_variables(),
                                   global_step=tf.train.get_global_step())
 
-    def infer(self, inputs):
+    def inference_iter(self, inputs):
         with self.sess.as_default() as sess:
             assert np.shape(inputs) == 4
             return sess.run(fetches=self._prediction,
@@ -68,12 +68,19 @@ class CIFARModel(BasicModel):
                                 self.input: inputs
                             })
 
-    def learn_from_epoch(self, dataset):
-        for _ in self.nb_iter:
-            with self.sess.as_default() as sess:
-                inputs, labels = dataset.get_next_batch()
+    def learning_iter(self, dataset):
+        with self.sess.as_default() as sess:
+            inputs, labels = dataset.get_next_batch()
 
-                sess.run(fetches=self._cross_entropy, feed_dict={
-                    self.input: inputs,
-                    self.labels: labels
-                })
+            sess.run(fetches=self._cross_entropy, feed_dict={
+                self.input: inputs,
+                self.labels: labels
+            })
+
+    def validation_iter(self, dataset):
+        with self.sess.as_default() as sess:
+            inputs, _ = dataset.get_next_batch(phase="val")
+            return sess.run(fetches=self._accuracy,
+                            feed_dict={
+                                self.input: inputs
+                            })

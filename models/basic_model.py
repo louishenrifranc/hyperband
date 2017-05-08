@@ -29,7 +29,6 @@ class BasicModel(object):
         self.nb_iter = self.config['nb_iter']
         self.max_epoch = self.config['max_epoch']
         self.lr = self.config['lr']
-        self.nb_units = self.config['nb_units']
 
         # Batch size is set but we should try to avoid it while building our model
         # because at test time, the first dimension is usually one.
@@ -73,21 +72,25 @@ class BasicModel(object):
     def build_graph(self, graph):
         raise Exception('The build_graph function must be overriden by the agent')
 
-    def infer(self, inputs):
+    def inference_iter(self, inputs):
         raise Exception('The infer function must be overriden by the agent')
 
-    def learn_from_epoch(self, dataset: Dataset):
+    def validation_iter(self, inputs):
+        raise Exception('The infer function must be overriden by the agent')
+
+    def learning_iter(self, dataset: Dataset):
         # I like to separate the function to train per epoch and the function to train globally
         raise Exception('The learn_from_epoch function must be overriden by the agent')
 
-    def train(self, dataset: Dataset, save_every=10, epoch_to_restart=-1, train_until=float("inf")):
+    def train(self, dataset: Dataset, save_every=-1, iter_to_restart=-1, iter_to_stop=float("inf")):
         # This function is usually common to all your models, Here is an example:
-        for epoch_id in range(max(0, epoch_to_restart), min(self.max_epoch, train_until)):
-            self.learn_from_epoch(dataset)
+        for iter_id in range(max(0, iter_to_restart), min(self.nb_iter, iter_to_stop)):
+            self.learning_iter(dataset)
 
             # If you don't want to save during training, you can just pass a negative number
-            if save_every > 0 and epoch_id % save_every == 0:
+            if save_every > 0 and iter_id % save_every == 0:
                 self.save()
+        self.save()
 
     def erase(self):
         if tf.gfile.Exists(self.result_dir):

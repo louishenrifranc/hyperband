@@ -1,13 +1,18 @@
+from models.cifar_model import CIFARModel
 from abc import ABCMeta, abstractmethod
 from math import log2, ceil, floor
+import json, os, collections
+import tensorflow as tf
+import numpy as np
 
 
 class HyperBand(object):
     __metaclass__ = ABCMeta
 
-    def __init__(self, R, eta=3):
+    def __init__(self, R, eta, dataset):
         self.R = R
         self.eta = eta
+        self.dataset = dataset
 
     @abstractmethod
     def get_hyperparameter_configuration(self, n):
@@ -21,7 +26,7 @@ class HyperBand(object):
     def top_k(self, models, L, keep_ratio):
         pass
 
-    def search(self, model, debug=True):
+    def search(self, debug=True):
         R = self.R
         eta = self.eta
 
@@ -37,27 +42,74 @@ class HyperBand(object):
             n = ceil((B * eta ** s) / (R * (s + 1)))
             r = R * eta ** -s
 
-            T = self.get_hyperparameter_configuration(n)
+            models = self.get_hyperparameter_configuration(n)
 
             for i in xrange(s):
                 n_i = floor(n * eta * -i)
                 r_i = r * eta ** i
 
-                L = self.run_then_return_val_loss(model, r_i)
-                T = self.top_k(model, L, keep_ratio=floor(n_i / eta))
+                L = self.run_then_return_val_loss(models, r_i)
+                models = self.top_k(models, L, keep_ratio=floor(n_i / eta))
 
         return L
 
 
+def update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.Mapping):
+            r = update(d.get(k, {}), v)
+            d[k] = r
+        else:
+            d[k] = u[k]
+    return d
+
+
 class CIFARHyperband(HyperBand):
-    def __init__(self, R, eta):
-        HyperBand.__init__(self, R, eta)
+    def __init__(self, R, eta, dataset, config):
+        HyperBand.__init__(self, R, eta, dataset)
+        self.default_config = config
 
     def run_then_return_val_loss(self, model, r_i):
-        pass
+        epoch_to_restart = model.sess.run(tf.train.get_global_step(model.graph))
+        model.train(dataset=self.dataset,
+                    epoch_to_restart=epoch_to_restart,
+                    train_until=r_i)
+        return model.validation_iter(self.dataset)
 
     def get_hyperparameter_configuration(self, n):
-        pass
+        models = {}
+
+        def hp_batch_norm():
+            return np.random.random() > 0.5
+
+        def hp_lr():
+            return np.random.uniform(0.001, 0.000001, 1)
+
+        def hp_dropout():
+            return np.random.choice([0.5, 0.7, 0.9, 1])
+
+        def hp_batch_size():
+            return np.random.choice([4, 8, 16, 32, 64, 128])
+
+        for _ in range(n):
+            new_config = {
+                "use_batch_norm": hp_batch_norm(),
+                "lr": hp_lr(),
+                "keep_prob": hp_dropout(),
+                "batch_size": hp_batch_size()
+            }
+            new_config_name = os.path.basename(self.default_config["result_dir"]) + json.dumps(new_config)
+            new_config["result_dir"] = new_config_name
+
+            new_model = CIFARModel(new_config)
+            graph = tf.Graph()
+            new_model.build_graph(graph)
+
+            models[new_config_name] = {
+                "model": new_model,
+                "score": 0.0
+            }
+        return models
 
     def top_k(self, models, L, keep_ratio):
         pass

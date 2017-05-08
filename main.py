@@ -1,4 +1,4 @@
-import os, json
+import os, json, sys
 import tensorflow as tf
 import random
 import time
@@ -16,24 +16,25 @@ dir = os.path.dirname(os.path.realpath(__file__))
 flags = tf.app.flags
 
 # Hyper-parameters search configuration
-flags.DEFINE_boolean('fullsearch', False,
-                     'Perform a full search of hyperparameter space ex:(hyperband -> lr search -> hyperband with best lr)')
-flags.DEFINE_boolean('dry_run', False, 'Perform a dry_run (testing purpose)')
 flags.DEFINE_integer('nb_process', 4, 'Number of parallel process to perform a HP search')
+flags.DEFINE_bool('full_search', True, 'Explore Hyper Parameter Search')
 
 # fixed_params is a trick I use to be able to fix some parameters inside the model random function
 # For example, one might want to explore different models fixing the learning rate, see the basic_model get_random_config function
 flags.DEFINE_string('fixed_params', "{}", 'JSON inputs to fix some params in a HP search, ex: \'{"lr": 0.001}\'')
 
 # Agent configuration
-flags.DEFINE_string('model_name', 'DQNAgent', 'Unique name of the model')
-flags.DEFINE_boolean('best', False, 'Force to use the best known configuration')
-flags.DEFINE_float('lr', 1e-3, 'The learning rate of SGD')
-flags.DEFINE_float('nb_units', 20, 'Number of hidden units in Deep learning agents')
+flags.DEFINE_string('model_name', 'CIFAR', 'Unique name of the model')
 
-# Environment configuration
+flags.DEFINE_float('keep_prob', 0.7, 'Dropout ratio')
+flags.DEFINE_float('lr', 1e-3, 'The learning rate of SGD')
+flags.DEFINE_boolean('use_batch_norm', False, 'Batch Norm uses')
+flags.DEFINE_integer('batch_size', 32, 'Batch size')
+
 flags.DEFINE_boolean('debug', False, 'Debug mode')
-flags.DEFINE_integer('max_iter', 2000, 'Number of training step')
+flags.DEFINE_integer('nb_iter', 100, 'Number of training step')
+flags.DEFINE_integer('max_epoch', 1000, 'Number of training epoch')
+
 flags.DEFINE_boolean('infer', False, 'Load an agent for playing')
 
 # This is very important for TensorBoard
@@ -50,10 +51,15 @@ flags.DEFINE_integer('random_seed', random.randint(0, sys.maxsize), 'Value of ra
 def main(_):
     config = flags.FLAGS.__flags.copy()
     # fixed_params must be a string to be passed in the shell, let's use JSON
-    config["fixed_params"] = json.loads(config["fixed_params"])
 
     if config['fullsearch']:
-    # Some code for HP search ...
+        from hpsearch.HyperBand import CIFARHyperband
+        from data.dataset import CIFARDataset
+        dataset = CIFARDataset(validation_ratio=0.1,
+                               test_ratio=0.1)
+
+        cf = CIFARHyperband(R=10000, eta=3, dataset=dataset)
+        cf.search(debug=True)
     else:
         model = make_model(config)
 
