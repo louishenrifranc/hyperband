@@ -23,7 +23,7 @@ class HyperBand(object):
         pass
 
     @abstractmethod
-    def top_k(self, models, L, keep_ratio):
+    def top_k(self, models, keep_ratio):
         pass
 
     def search(self, debug=True):
@@ -48,8 +48,8 @@ class HyperBand(object):
                 n_i = floor(n * eta * -i)
                 r_i = r * eta ** i
 
-                L = self.run_then_return_val_loss(models, r_i)
-                models = self.top_k(models, L, keep_ratio=floor(n_i / eta))
+                self.run_then_return_val_loss(models, r_i)
+                models = self.top_k(models, keep_ratio=floor(n_i / eta))
 
         return L
 
@@ -69,12 +69,16 @@ class CIFARHyperband(HyperBand):
         HyperBand.__init__(self, R, eta, dataset)
         self.default_config = config
 
-    def run_then_return_val_loss(self, model, r_i):
-        epoch_to_restart = model.sess.run(tf.train.get_global_step(model.graph))
-        model.train(dataset=self.dataset,
-                    epoch_to_restart=epoch_to_restart,
-                    train_until=r_i)
-        return model.validation_iter(self.dataset)
+    def run_then_return_val_loss(self, models, r_i):
+        for model_name in models.keys():
+            model = models[model_name][0]
+
+            epoch_to_restart = model.sess.run(tf.train.get_global_step(model.graph))
+            model.train(dataset=self.dataset,
+                        epoch_to_restart=epoch_to_restart,
+                        train_until=r_i)
+
+            models[model_name][1] = model.validation_iter(self.dataset)
 
     def get_hyperparameter_configuration(self, n):
         models = {}
@@ -105,11 +109,8 @@ class CIFARHyperband(HyperBand):
             graph = tf.Graph()
             new_model.build_graph(graph)
 
-            models[new_config_name] = {
-                "model": new_model,
-                "score": 0.0
-            }
+            models[new_config_name] = (new_model, 0.0)
         return models
 
-    def top_k(self, models, L, keep_ratio):
-        pass
+    def top_k(self, models, keep_ratio):
+        return sorted(models, key=lambda tup: tup[1])[:keep_ratio]
