@@ -16,19 +16,19 @@ class CIFARModel(BasicModel):
         self.H = 28
         self.nb_labels = 10
 
-        self.use_batch_norm = self.config['batch_norm']
+        self.use_batch_norm = self.config['use_batch_norm']
 
     def build_graph(self, graph):
         with graph.as_default():
-            self.input = tf.placeholder(dtype=tf.float32, shape=[-1, self.W, self.H, 3])
-            self.labels = tf.placeholder(dtype=tf.int32, shape=[-1])
+            self.input = tf.placeholder(dtype=tf.float32, shape=[None, self.W, self.H, 3])
+            self.labels = tf.placeholder(dtype=tf.int32, shape=[None])
 
             bn_or_id = batch_norm if self.use_batch_norm else tf.identity
 
             with tf.variable_scope("model") as _:
-                out = max_pool2d(bn_or_id(relu(conv2d(self.input, 64, 3))))
-                out = max_pool2d(bn_or_id(relu(conv2d(out, 128, 3))))
-                out = max_pool2d(bn_or_id(relu(conv2d(out, 256, 3))))
+                out = max_pool2d(bn_or_id(relu(conv2d(self.input, 64, 3))), 2)
+                out = max_pool2d(bn_or_id(relu(conv2d(out, 128, 3))), 2)
+                out = max_pool2d(bn_or_id(relu(conv2d(out, 256, 3))), 2)
                 out = bn_or_id(relu(fully_connected(flatten(out), 512)))
 
             with tf.variable_scope("output") as _:
@@ -39,20 +39,23 @@ class CIFARModel(BasicModel):
                                                                         logits=logits)
 
             with tf.variable_scope("accuracy") as _:
-                accuracy = tf.reduce_mean(tf.equal(x=tf.arg_max(input=self.labels,
-                                                                dimension=1),
-                                                   y=tf.arg_max(input=logits,
-                                                                dimension=1)))
-            with tf.variable_scope("prediction") as _:
-                prediction = tf.argmax(logits, axis=1)
+                accuracy = tf.reduce_mean(
+                    tf.cast(
+                        tf.equal(x=tf.arg_max(input=self.labels,
+                                              dimension=1),
+                                 y=tf.arg_max(input=logits,
+                                              dimension=1)),
+                        tf.int32))
+                with tf.variable_scope("prediction") as _:
+                    prediction = tf.argmax(logits, axis=1)
 
-            self._cross_entropy = cross_entropy
-            self.train_fn = self.optimize()
+                self._cross_entropy = cross_entropy
+                self.train_fn = self.optimize()
 
-            self._accuracy = accuracy
+                self._accuracy = accuracy
 
-            self._prediction = prediction
-        return self.graph
+                self._prediction = prediction
+        return graph
 
     def optimize(self):
         self.config = {}

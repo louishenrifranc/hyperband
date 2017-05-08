@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 from math import log2, ceil, floor
 import json, os, collections
 import tensorflow as tf
-import numpy as np
+import random
 
 
 class HyperBand(object):
@@ -33,12 +33,7 @@ class HyperBand(object):
         s_max = floor(log2(R))
         B = (s_max + 1) * R
 
-        if debug:
-            from tqdm import trange
-            xrange = trange
-        else:
-            xrange = range
-        for s in reversed(xrange(s_max + 1)):
+        for s in reversed(range(s_max + 1)):
             n = ceil((B * eta ** s) / (R * (s + 1)))
             r = R * eta ** -s
 
@@ -84,16 +79,16 @@ class MNISTHyperband(HyperBand):
         models = {}
 
         def hp_batch_norm():
-            return np.random.random() > 0.5
+            return random.random() > 0.5
 
         def hp_lr():
-            return np.random.uniform(0.001, 0.000001, 1)
+            return random.uniform(0.001, 0.000001)
 
         def hp_dropout():
-            return np.random.choice([0.5, 0.7, 0.9, 1])
+            return random.choice([0.5, 0.7, 0.9, 1])
 
         def hp_batch_size():
-            return np.random.choice([4, 8, 16, 32, 64, 128])
+            return random.choice([4, 8, 16, 32, 64, 128])
 
         for _ in range(n):
             new_config = {
@@ -104,7 +99,7 @@ class MNISTHyperband(HyperBand):
             }
             new_config_name = os.path.basename(self.default_config["result_dir"]) + json.dumps(new_config)
             new_config["result_dir"] = new_config_name
-
+            new_config = update(new_config, self.default_config)
             # Create a new model and build it
             new_model = CIFARModel(new_config)
             graph = tf.Graph()

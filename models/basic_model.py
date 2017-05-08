@@ -41,6 +41,10 @@ class BasicModel(object):
 
         # Again, child Model should provide its own build_grap function
         self.graph = self.build_graph(tf.Graph())
+        # Init operation: Launch queue if necessary,
+        # else initialized variables
+        with self.graph.as_default():
+            self.init_op = tf.global_variables_initializer()
 
         # Any operations that should be in the graph but are common to all models
         # can be added this way, here
@@ -54,10 +58,6 @@ class BasicModel(object):
         sessConfig = tf.ConfigProto(gpu_options=gpu_options)
         self.sess = tf.Session(config=sessConfig, graph=self.graph)
         self.writer = tf.summary.FileWriter(self.result_dir, self.sess.graph)
-
-        # Init operation: Launch queue if necessary,
-        # else initialized variables
-        self.init_op = tf.global_variables_initializer()
 
         # This function is not always common to all models, that's why it's again
         # separated from the __init__ one
@@ -117,6 +117,7 @@ class BasicModel(object):
         # this is an example of such a function
         checkpoint = tf.train.get_checkpoint_state(self.result_dir)
         if checkpoint is None:
+            # print([n.name for n in self.sess.graph.as_graph_def().node])
             self.sess.run(self.init_op)
         else:
 

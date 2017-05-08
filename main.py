@@ -50,12 +50,11 @@ flags.DEFINE_integer('random_seed', random.randint(0, sys.maxsize), 'Value of ra
 
 def main(_):
     config = flags.FLAGS.__flags.copy()
-    # fixed_params must be a string to be passed in the shell, let's use JSON
 
     if config['fullsearch']:
         from hpsearch.HyperBand import MNISTHyperband
         from data.dataset import MNISTDataset
-        dataset = MNISTDataset(validation_ratio=0.1)
+        dataset = MNISTDataset(validation_size=1000)
 
         cf = MNISTHyperband(R=10000,
                             eta=3,

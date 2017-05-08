@@ -20,9 +20,11 @@ class Dataset(object):
 
 class MNISTDataset(Dataset):
     def __init__(self,
-                 validation_ratio):
+                 validation_size):
         from tensorflow.examples.tutorials.mnist import input_data
-        mnist = input_data.read_data_sets('MNIST_data', one_hot=True, validation_size=validation_ratio)
+        mnist = input_data.read_data_sets(train_dir='data/MNIST_data',
+                                          one_hot=True,
+                                          validation_size=validation_size)
 
         data = {
             "train": mnist.train,
