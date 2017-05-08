@@ -5,8 +5,8 @@ import time
 
 # See the __init__ script in the models folder
 # `make_models` is a helper function to load any models you have
-from models import make_models
-from hpsearch import hyperband, randomsearch
+# from models import make_models
+# from hpsearch import hyperband, randomsearch
 
 # I personally always like to make my paths absolute
 # to be independent from where the python binary is called
@@ -17,7 +17,7 @@ flags = tf.app.flags
 
 # Hyper-parameters search configuration
 flags.DEFINE_integer('nb_process', 4, 'Number of parallel process to perform a HP search')
-flags.DEFINE_bool('full_search', True, 'Explore Hyper Parameter Search')
+flags.DEFINE_bool('fullsearch', True, 'Explore Hyper Parameter Search')
 
 # fixed_params is a trick I use to be able to fix some parameters inside the model random function
 # For example, one might want to explore different models fixing the learning rate, see the basic_model get_random_config function
@@ -53,14 +53,17 @@ def main(_):
     # fixed_params must be a string to be passed in the shell, let's use JSON
 
     if config['fullsearch']:
-        from hpsearch.HyperBand import CIFARHyperband
-        from data.dataset import CIFARDataset
-        dataset = CIFARDataset(validation_ratio=0.1,
-                               test_ratio=0.1)
+        from hpsearch.HyperBand import MNISTHyperband
+        from data.dataset import MNISTDataset
+        dataset = MNISTDataset(validation_ratio=0.1)
 
-        cf = CIFARHyperband(R=10000, eta=3, dataset=dataset)
+        cf = MNISTHyperband(R=10000,
+                            eta=3,
+                            dataset=dataset,
+                            config=config)
         cf.search(debug=True)
     else:
+        # TODO
         model = make_model(config)
 
         if config['infer']:

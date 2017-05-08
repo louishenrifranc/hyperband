@@ -1,9 +1,10 @@
 from tensorflow.contrib.layers import conv2d, max_pool2d, fully_connected, flatten, batch_norm
-import tensorflow.nn.relu as relu
 import tensorflow as tf
 import numpy as np
 
 from models.basic_model import BasicModel
+
+relu = tf.nn.relu
 
 
 class CIFARModel(BasicModel):
@@ -11,8 +12,8 @@ class CIFARModel(BasicModel):
         BasicModel.__init__(self, config)
 
     def set_model_props(self):
-        self.W = 32
-        self.H = 32
+        self.W = 28
+        self.H = 28
         self.nb_labels = 10
 
         self.use_batch_norm = self.config['batch_norm']
@@ -38,7 +39,8 @@ class CIFARModel(BasicModel):
                                                                         logits=logits)
 
             with tf.variable_scope("accuracy") as _:
-                accuracy = tf.reduce_mean(tf.equal(x=self.labels,
+                accuracy = tf.reduce_mean(tf.equal(x=tf.arg_max(input=self.labels,
+                                                                dimension=1),
                                                    y=tf.arg_max(input=logits,
                                                                 dimension=1)))
             with tf.variable_scope("prediction") as _:

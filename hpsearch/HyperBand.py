@@ -64,7 +64,7 @@ def update(d, u):
     return d
 
 
-class CIFARHyperband(HyperBand):
+class MNISTHyperband(HyperBand):
     def __init__(self, R, eta, dataset, config):
         HyperBand.__init__(self, R, eta, dataset)
         self.default_config = config

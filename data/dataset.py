@@ -18,24 +18,16 @@ class Dataset(object):
             raise Exception('There is no {} dataset'.format(phase))
 
 
-class CIFARDataset(Dataset):
+class MNISTDataset(Dataset):
     def __init__(self,
-                 validation_ratio,
-                 test_ratio):
-        from data import cifar10
-
-        images, labels = cifar10.distorted_inputs()
-        Datum = namedtuple('Datum', 'images label')
-
-        t = test_ratio
-        v = validation_ratio
-        indexes = np.arange(len(images))
-        indexes = np.split(indexes, [int((1 - (t + v)) * len(indexes)), int((1 - t) * len(indexes))])
+                 validation_ratio):
+        from tensorflow.examples.tutorials.mnist import input_data
+        mnist = input_data.read_data_sets('MNIST_data', one_hot=True, validation_size=validation_ratio)
 
         data = {
-            "train": Datum(images[indexes[0]], labels[indexes[0]]),
-            "val": Datum(images[indexes[1]], labels[indexes[1]]),
-            "test": Datum(images[indexes[2]], labels[indexes[2]])
+            "train": mnist.train,
+            "val": mnist.validation,
+            "test": mnist.test
         }
         Dataset.__init__(self, data)
 
@@ -43,5 +35,4 @@ class CIFARDataset(Dataset):
 def get_next_batch(self, batch_size, phase="train"):
     assert phase in self._data, "Phase {} is not available".format(phase)
 
-    indexes = np.random.randint(0, len(self._data[phase]), batch_size)
-    return self._data[phase].images[indexes], self._data[phase].labels[indexes]
+    return self._data[phase].next_batch(batch_size)
