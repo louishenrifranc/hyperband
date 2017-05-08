@@ -47,3 +47,17 @@ class HyperBand(object):
                 T = self.top_k(model, L, keep_ratio=floor(n_i / eta))
 
         return L
+
+
+class CIFARHyperband(HyperBand):
+    def __init__(self, R, eta):
+        HyperBand.__init__(self, R, eta)
+
+    def run_then_return_val_loss(self, model, r_i):
+        pass
+
+    def get_hyperparameter_configuration(self, n):
+        pass
+
+    def top_k(self, models, L, keep_ratio):
+        pass

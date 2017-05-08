@@ -54,24 +54,21 @@ class BasicModel(object):
         gpu_options = tf.GPUOptions(allow_growth=True)
         sessConfig = tf.ConfigProto(gpu_options=gpu_options)
         self.sess = tf.Session(config=sessConfig, graph=self.graph)
-        self.sw = tf.summary.FileWriter(self.result_dir, self.sess.graph)
+        self.writer = tf.summary.FileWriter(self.result_dir, self.sess.graph)
+
+        # Init operation: Launch queue if necessary,
+        # else initialized variables
+        self.init_op = tf.global_variables_initializer()
 
         # This function is not always common to all models, that's why it's again
         # separated from the __init__ one
         self.init()
-
         # At the end of this function, you want your model to be ready!
 
     def set_model_props(self):
         # This function is here to be overriden completely.
         # When you look at your model, you want to know exactly which custom options it needs.
         pass
-
-    @staticmethod
-    def get_random_config(fixed_params={}):
-        # Why static? Because you want to be able to pass this function to other processes
-        # so they can independently generate random configuration of the current model
-        raise Exception('The get_random_config function must be overriden by the agent')
 
     def build_graph(self, graph):
         raise Exception('The build_graph function must be overriden by the agent')

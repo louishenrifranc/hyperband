@@ -1,4 +1,4 @@
-from tensorflow.contrib.layers import conv2d, max_pool2d, fully_connected, flatten
+from tensorflow.contrib.layers import conv2d, max_pool2d, fully_connected, flatten, batch_norm
 import tensorflow.nn.relu as relu
 import tensorflow as tf
 import numpy as np
@@ -14,6 +14,7 @@ class CIFARModel(BasicModel):
         self.W = self.config['W']
         self.H = self.config['H']
 
+        self.use_batch_norm = self.config['batch_norm']
         self.nb_labels = 10
 
     def build_graph(self, graph):
@@ -21,11 +22,13 @@ class CIFARModel(BasicModel):
             self.input = tf.placeholder(dtype=tf.float32, shape=[-1, self.W, self.H, 3])
             self.labels = tf.placeholder(dtype=tf.int32, shape=[-1])
 
+            bn_or_id = batch_norm if self.use_batch_norm else tf.identity
+
             with tf.variable_scope("model") as _:
-                out = max_pool2d(relu(conv2d(self.input, 64, 3)))
-                out = max_pool2d(relu(conv2d(out, 128, 3)))
-                out = max_pool2d(relu(conv2d(out, 256, 3)))
-                out = relu(fully_connected(flatten(out), 512))
+                out = max_pool2d(bn_or_id(relu(conv2d(self.input, 64, 3))))
+                out = max_pool2d(bn_or_id(relu(conv2d(out, 128, 3))))
+                out = max_pool2d(bn_or_id(relu(conv2d(out, 256, 3))))
+                out = bn_or_id(relu(fully_connected(flatten(out), 512)))
 
             with tf.variable_scope("output") as _:
                 logits = fully_connected(out, self.nb_labels)
@@ -51,7 +54,7 @@ class CIFARModel(BasicModel):
 
     def optimize(self):
         self.config = {}
-        optimizer = self.config.get("optimizer", tf.train.AdamOptimizer(learning_rate=self.lr))
+        optimizer = self.config.get("optimizer", tf.train.AdamOptimizer)(learning_rate=self.lr)
 
         return optimizer.minimize(loss=self._cross_entropy,
                                   var_list=tf.trainable_variables(),
@@ -74,4 +77,3 @@ class CIFARModel(BasicModel):
                     self.input: inputs,
                     self.labels: labels
                 })
-
