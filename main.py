@@ -32,7 +32,7 @@ flags.DEFINE_boolean('use_batch_norm', False, 'Batch Norm uses')
 flags.DEFINE_integer('batch_size', 32, 'Batch size')
 
 flags.DEFINE_boolean('debug', False, 'Debug mode')
-flags.DEFINE_integer('nb_iter', 100, 'Number of training step')
+flags.DEFINE_integer('nb_iter', 50, 'Number of training step')
 flags.DEFINE_integer('max_epoch', 1000, 'Number of training epoch')
 
 flags.DEFINE_boolean('infer', False, 'Load an agent for playing')
@@ -56,11 +56,11 @@ def main(_):
         from data.dataset import MNISTDataset
         dataset = MNISTDataset(validation_size=1000)
 
-        cf = MNISTHyperband(R=10000,
+        cf = MNISTHyperband(R=30,
                             eta=3,
                             dataset=dataset,
                             config=config)
-        cf.search(debug=True)
+        cf.search()
     else:
         # TODO
         model = make_model(config)

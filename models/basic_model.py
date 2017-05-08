@@ -82,14 +82,11 @@ class BasicModel(object):
         # I like to separate the function to train per epoch and the function to train globally
         raise Exception('The learn_from_epoch function must be overriden by the agent')
 
-    def train(self, dataset: Dataset, save_every=-1, iter_to_restart=-1, iter_to_stop=float("inf")):
+    def train(self, dataset: Dataset, epoch_to_restart=-1, epoch_to_stop=float("inf")):
         # This function is usually common to all your models, Here is an example:
-        for iter_id in range(max(0, iter_to_restart), min(self.nb_iter, iter_to_stop)):
-            self.learning_iter(dataset)
-
-            # If you don't want to save during training, you can just pass a negative number
-            if save_every > 0 and iter_id % save_every == 0:
-                self.save()
+        for epoch_id in range(max(0, epoch_to_restart), min(self.max_epoch, epoch_to_stop)):
+            for _ in range(self.nb_iter):
+                self.learning_iter(dataset)
         self.save()
 
     def erase(self):

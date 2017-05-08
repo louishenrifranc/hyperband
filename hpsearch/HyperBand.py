@@ -1,6 +1,6 @@
 from models.cifar_model import CIFARModel
 from abc import ABCMeta, abstractmethod
-from math import log2, ceil, floor
+from math import log, ceil, floor
 import json, os, collections
 import tensorflow as tf
 import random
@@ -26,20 +26,21 @@ class HyperBand(object):
     def top_k(self, models, keep_ratio):
         pass
 
-    def search(self, debug=True):
+    def search(self):
         R = self.R
         eta = self.eta
 
-        s_max = floor(log2(R))
+        s_max = floor(log(R) / log(3))
+        print(s_max)
         B = (s_max + 1) * R
-
+        print(B)
         for s in reversed(range(s_max + 1)):
             n = ceil((B * eta ** s) / (R * (s + 1)))
             r = R * eta ** -s
-
+            print(n)
             models = self.get_hyperparameter_configuration(n)
 
-            for i in xrange(s):
+            for i in range(s):
                 n_i = floor(n * eta * -i)
                 r_i = r * eta ** i
 

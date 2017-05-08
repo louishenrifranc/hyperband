@@ -27,9 +27,9 @@ class CIFARModel(BasicModel):
 
             with tf.variable_scope("model") as _:
                 out = max_pool2d(bn_or_id(relu(conv2d(self.input, 64, 3))), 2)
-                out = max_pool2d(bn_or_id(relu(conv2d(out, 128, 3))), 2)
-                out = max_pool2d(bn_or_id(relu(conv2d(out, 256, 3))), 2)
-                out = bn_or_id(relu(fully_connected(flatten(out), 512)))
+                # out = max_pool2d(bn_or_id(relu(conv2d(out, 128, 3))), 2)
+                # out = max_pool2d(bn_or_id(relu(conv2d(out, 256, 3))), 2)
+                # out = bn_or_id(relu(fully_connected(flatten(out), 512)))
 
             with tf.variable_scope("output") as _:
                 logits = fully_connected(out, self.nb_labels)
