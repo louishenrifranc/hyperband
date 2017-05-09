@@ -55,10 +55,9 @@ class CIFARModel(BasicModel):
                 self.train_fn = self.optimize()
                 self._accuracy = accuracy
                 self._prediction = prediction
-        return graph
+                return graph
 
     def optimize(self):
-        self.config = {}
         optimizer = self.config.get("optimizer", tf.train.AdamOptimizer)(learning_rate=self.lr)
 
         return optimizer.minimize(loss=self._cross_entropy,
@@ -74,10 +73,11 @@ class CIFARModel(BasicModel):
 
     def learning_iter(self, dataset, sess):
         inputs, labels = dataset.get_next_batch(self.batch_size)
-        sess.run(fetches=self._cross_entropy, feed_dict={
-            self.input: inputs,
-            self.labels: labels
-        })
+        with self.graph.as_default():
+            sess.run(fetches=self._cross_entropy, feed_dict={
+                self.input: inputs,
+                self.labels: labels
+            })
 
     def validation_iter(self, dataset, sess):
         inputs, _ = dataset.get_next_batch(self.batch_size,

@@ -2,6 +2,7 @@ from models.cifar_model import CIFARModel
 from abc import ABCMeta, abstractmethod
 from math import log, ceil, floor
 import json, os, collections
+from collections import OrderedDict
 import tensorflow as tf
 import random
 
@@ -53,17 +54,14 @@ class HyperBand(object):
                 self.run_then_return_val_loss(models, r_i)
                 models = self.top_k(models, keep_ratio=floor(n_i / eta))
 
-        return L
+        return models
 
 
 def update(d, u):
-    for k, v in u.items():
-        if isinstance(v, collections.Mapping):
-            r = update(d.get(k, {}), v)
-            d[k] = r
-        else:
-            d[k] = u[k]
-    return d
+    for k, v in d.items():
+        if k not in u:
+            u[k] = v
+    return u
 
 
 class MNISTHyperband(HyperBand):
@@ -71,24 +69,20 @@ class MNISTHyperband(HyperBand):
         HyperBand.__init__(self, R, eta, dataset)
         self.default_config = config
 
-        gpu_options = tf.GPUOptions(allow_growth=True)
-        sessConfig = tf.ConfigProto(gpu_options=gpu_options)
-        self.sess = tf.InteractiveSession(config=sessConfig)
-
     def run_then_return_val_loss(self, models, r_i):
         for model_name, tup in models.items():
             model = tup["model"]
             last_epoch = tup["last_epoch"]
             # If the model does not exists
 
-            if last_epoch <= r_i:
+            if last_epoch >= r_i:
                 continue
+            self.sess = tf.Session(graph=model.graph)
 
             if model is None:
                 model = self.build_model(tup["config"])
-            elif os.path.exists(model.config["result_dir"]):
-                model.restore()
 
+            model.restore(sess=self.sess)
             model.train(sess=self.sess,
                         dataset=self.dataset,
                         epoch_to_restart=last_epoch,
@@ -115,26 +109,26 @@ class MNISTHyperband(HyperBand):
             return random.choice([4, 8, 16, 32, 64, 128])
 
         for _ in range(n):
-            new_config = {
-                "use_batch_norm": hp_batch_norm(),
-                "lr": hp_lr(),
-                "keep_prob": hp_dropout(),
-                "batch_size": hp_batch_size()
-            }
+            new_config = OrderedDict([
+                ("use_batch_norm", hp_batch_norm()),
+                ("lr", hp_lr()),
+                ("keep_prob", hp_dropout()),
+                ("batch_size", hp_batch_size())
+            ])
 
             model_unique_name = json.dumps(new_config) \
                 .replace("\"", "") \
                 .replace("{", "") \
                 .replace("}", "") \
                 .replace(" ", "") \
-                .replace(",", "_")
+                .replace(",", "_") \
+                .replace(":", ".")
 
             # Uniquely defined model name
             new_config["model_name"] = model_unique_name
             new_config["result_dir"] = os.path.join(self.default_config["result_dir"], model_unique_name)
-
             # Update dictionary of config
-            new_config = update(new_config, self.default_config)
+            new_config = update(self.default_config, new_config)
 
             new_model = self.build_model(new_config)
 

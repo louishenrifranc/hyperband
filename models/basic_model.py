@@ -13,7 +13,6 @@ class BasicModel(object):
         # I make a `deepcopy` of the configuration before using it
         # to avoid any potential mutation when I iterate asynchronously over configurations
         self.config = copy.deepcopy(config)
-
         if config['debug']:  # This is a personal check i like to do
             pprint('config', self.config)
 
@@ -49,14 +48,14 @@ class BasicModel(object):
             with g.name_scope(self.config["model_name"]):
                 self.global_step = tf.get_variable("global_step", shape=(), dtype=tf.int32, trainable=False)
 
-                all_vars = tf.all_variables()
+                all_vars = tf.global_variables()
                 model_vars = [k for k in all_vars if k.name.startswith(self.config["model_name"])]
 
                 self.init_op = tf.variables_initializer(model_vars)
 
                 self.saver = tf.train.Saver(var_list=model_vars,
                                             max_to_keep=50)
-
+        tf.reset_default_graph()
         # Add all the other common code for the initialization here
         self.writer = tf.summary.FileWriter(self.result_dir, self.graph)
 
@@ -86,8 +85,8 @@ class BasicModel(object):
         # This function is usually common to all your models, Here is an example:
         for epoch_id in range(max(0, epoch_to_restart), min(self.max_epoch, epoch_to_stop)):
             for _ in range(self.nb_iter):
-                self.learning_iter(dataset)
-        self.save()
+                self.learning_iter(dataset, sess)
+        self.save(sess)
 
     def erase(self):
         if tf.gfile.Exists(self.result_dir):
@@ -114,7 +113,8 @@ class BasicModel(object):
         # this is an example of such a function
         checkpoint = tf.train.get_checkpoint_state(self.result_dir)
         if checkpoint is None:
-            sess.run(self.init_op)
+            with self.graph.as_default():
+                sess.run(self.init_op)
         else:
 
             if self.config['debug']:
