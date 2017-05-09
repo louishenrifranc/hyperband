@@ -50,7 +50,6 @@ class HyperBand(object):
             for i in range(s):
                 n_i = floor(n * eta * -i)
                 r_i = floor(r * eta ** i)
-
                 self.run_then_return_val_loss(models, r_i)
                 models = self.top_k(models, keep_ratio=floor(n_i / eta))
 
@@ -77,16 +76,28 @@ class MNISTHyperband(HyperBand):
         self.sess = tf.InteractiveSession(config=sessConfig)
 
     def run_then_return_val_loss(self, models, r_i):
-        for model_name in models.keys():
-            model = models[model_name][0]
+        for model_name, tup in models.items():
+            model = tup["model"]
+            last_epoch = tup["last_epoch"]
+            # If the model does not exists
 
-            epoch_to_restart = self.sess.run(tf.train.get_global_step(model.graph))
+            if last_epoch <= r_i:
+                continue
 
-            model.train(dataset=self.dataset,
-                        epoch_to_restart=epoch_to_restart,
+            if model is None:
+                model = self.build_model(tup["config"])
+            elif os.path.exists(model.config["result_dir"]):
+                model.restore()
+
+            model.train(sess=self.sess,
+                        dataset=self.dataset,
+                        epoch_to_restart=last_epoch,
                         epoch_to_stop=r_i)
 
-            models[model_name][1] = model.validation_iter(self.dataset)
+            tup["val_score"] = model.validation_iter(dataset=self.dataset,
+                                                     sess=self.sess)
+            tup["model"] = model
+            tup["last_epoch"] = r_i
 
     def get_hyperparameter_configuration(self, n):
         models = {}
@@ -125,16 +136,27 @@ class MNISTHyperband(HyperBand):
             # Update dictionary of config
             new_config = update(new_config, self.default_config)
 
-            # Create a new model and build it
-            new_model = CIFARModel(new_config)
-            graph = tf.Graph()
-            new_model.build_graph(graph)
+            new_model = self.build_model(new_config)
 
             # Set accuracy to 0.0
-            models[new_config_name] = (new_model, 0.0)
+            models[model_unique_name] = {
+                "config": new_config,
+                "model": new_model,
+                "last_epoch": 0,
+                "val_score": 0.0
+            }
+        return models
 
-    return models
+    def top_k(self, models, keep_ratio):
+        sorted_model = sorted(models.items(), key=lambda tup: tup[1]["val_score"])
 
+        for model in sorted_model[keep_ratio:]:
+            models[model[0]]["model"] = None
+        return models
 
-def top_k(self, models, keep_ratio):
-    return sorted(models, key=lambda tup: tup[1])[:keep_ratio]
+    @staticmethod
+    def build_model(new_config):
+        new_model = CIFARModel(new_config)
+        graph = tf.Graph()
+        new_model.build_graph(graph)
+        return new_model
