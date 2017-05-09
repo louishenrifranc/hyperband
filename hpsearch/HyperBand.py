@@ -26,23 +26,30 @@ class HyperBand(object):
     def top_k(self, models, keep_ratio):
         pass
 
-    def search(self):
+    def search(self, debug=True):
+        # R is the max budget for any configuration. If R = 30, then no
+        # configuration will exceed 30 units of time.
+        # Here 1 unit of time = 100 iteration = 1 epoch
         R = self.R
+
         eta = self.eta
 
         s_max = floor(log(R) / log(3))
-        print(s_max)
         B = (s_max + 1) * R
-        print(B)
+
+        if debug:
+            print("[DEBUG HYPERBAND] s_max = {}, B = {}".format(s_max, B))
+
         for s in reversed(range(s_max + 1)):
             n = ceil((B * eta ** s) / (R * (s + 1)))
             r = R * eta ** -s
-            print(n)
+            print("[DEBUG HYPERBAND] Iteration s = {} n = {}, r = {}".format(s, n, r))
+
             models = self.get_hyperparameter_configuration(n)
 
             for i in range(s):
                 n_i = floor(n * eta * -i)
-                r_i = r * eta ** i
+                r_i = floor(r * eta ** i)
 
                 self.run_then_return_val_loss(models, r_i)
                 models = self.top_k(models, keep_ratio=floor(n_i / eta))
@@ -65,14 +72,19 @@ class MNISTHyperband(HyperBand):
         HyperBand.__init__(self, R, eta, dataset)
         self.default_config = config
 
+        gpu_options = tf.GPUOptions(allow_growth=True)
+        sessConfig = tf.ConfigProto(gpu_options=gpu_options)
+        self.sess = tf.InteractiveSession(config=sessConfig)
+
     def run_then_return_val_loss(self, models, r_i):
         for model_name in models.keys():
             model = models[model_name][0]
 
-            epoch_to_restart = model.sess.run(tf.train.get_global_step(model.graph))
+            epoch_to_restart = self.sess.run(tf.train.get_global_step(model.graph))
+
             model.train(dataset=self.dataset,
                         epoch_to_restart=epoch_to_restart,
-                        train_until=r_i)
+                        epoch_to_stop=r_i)
 
             models[model_name][1] = model.validation_iter(self.dataset)
 
@@ -83,7 +95,7 @@ class MNISTHyperband(HyperBand):
             return random.random() > 0.5
 
         def hp_lr():
-            return random.uniform(0.001, 0.000001)
+            return random.choice([0.001, 0.005, 0.0005, 0.0001, 0.00005, 0.000001])
 
         def hp_dropout():
             return random.choice([0.5, 0.7, 0.9, 1])
@@ -98,9 +110,21 @@ class MNISTHyperband(HyperBand):
                 "keep_prob": hp_dropout(),
                 "batch_size": hp_batch_size()
             }
-            new_config_name = os.path.basename(self.default_config["result_dir"]) + json.dumps(new_config)
-            new_config["result_dir"] = new_config_name
+
+            model_unique_name = json.dumps(new_config) \
+                .replace("\"", "") \
+                .replace("{", "") \
+                .replace("}", "") \
+                .replace(" ", "") \
+                .replace(",", "_")
+
+            # Uniquely defined model name
+            new_config["model_name"] = model_unique_name
+            new_config["result_dir"] = os.path.join(self.default_config["result_dir"], model_unique_name)
+
+            # Update dictionary of config
             new_config = update(new_config, self.default_config)
+
             # Create a new model and build it
             new_model = CIFARModel(new_config)
             graph = tf.Graph()
@@ -108,7 +132,9 @@ class MNISTHyperband(HyperBand):
 
             # Set accuracy to 0.0
             models[new_config_name] = (new_model, 0.0)
-        return models
 
-    def top_k(self, models, keep_ratio):
-        return sorted(models, key=lambda tup: tup[1])[:keep_ratio]
+    return models
+
+
+def top_k(self, models, keep_ratio):
+    return sorted(models, key=lambda tup: tup[1])[:keep_ratio]

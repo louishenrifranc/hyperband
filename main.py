@@ -40,7 +40,7 @@ flags.DEFINE_boolean('infer', False, 'Load an agent for playing')
 # This is very important for TensorBoard
 # each model will end up in its own unique folder using time module
 # Obviously one can also choose to name the output folder
-flags.DEFINE_string('result_dir', dir + '/results/' + flags.FLAGS.model_name + '/' + str(int(time.time())),
+flags.DEFINE_string('result_dir', os.path.join(dir, "results", flags.FLAGS.model_name),
                     'Name of the directory to store/log the model (if it exists, the model will be loaded from it)')
 
 # Another important point, you must provide an access to the random seed

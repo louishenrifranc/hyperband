@@ -1,14 +1,18 @@
 import numpy as np
 from collections import namedtuple
+from abc import ABCMeta, abstractmethod
 
 
 class Dataset(object):
+    __metaclass__ = ABCMeta
+
     # To build your model, you only to pass a "configuration" which is a dictionary
     def __init__(self, data):
         self._data = data
 
-    def get_next_batch(self, phase="train"):
-        raise Exception('The get_next_batch function must be overriden by the agent')
+    @abstractmethod
+    def get_next_batch(self, batch_size, phase="train"):
+        pass
 
     @property
     def nb_examples(self, phase="train"):
@@ -33,8 +37,7 @@ class MNISTDataset(Dataset):
         }
         Dataset.__init__(self, data)
 
+    def get_next_batch(self, batch_size, phase="train"):
+        assert phase in self._data, "Phase {} is not available".format(phase)
 
-def get_next_batch(self, batch_size, phase="train"):
-    assert phase in self._data, "Phase {} is not available".format(phase)
-
-    return self._data[phase].next_batch(batch_size)
+        return self._data[phase].next_batch(batch_size)

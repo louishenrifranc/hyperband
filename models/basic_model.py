@@ -34,6 +34,8 @@ class BasicModel(object):
         # because at test time, the first dimension is usually one.
         self.batch_size = self.config['batch_size']
 
+        # Global step
+
         # Now the child Model needs some custom parameters, to avoid any
         # inheritance hell with the __init__ function, the model
         # will override this function completely
@@ -43,25 +45,23 @@ class BasicModel(object):
         self.graph = self.build_graph(tf.Graph())
         # Init operation: Launch queue if necessary,
         # else initialized variables
-        with self.graph.as_default():
-            self.init_op = tf.global_variables_initializer()
+        with self.graph.as_default() as g:
+            with g.name_scope(self.config["model_name"]):
+                self.global_step = tf.get_variable("global_step", shape=(), dtype=tf.int32, trainable=False)
 
-        # Any operations that should be in the graph but are common to all models
-        # can be added this way, here
-        with self.graph.as_default():
-            self.saver = tf.train.Saver(
-                max_to_keep=50,
-            )
+                all_vars = tf.all_variables()
+                model_vars = [k for k in all_vars if k.name.startswith(self.config["model_name"])]
+
+                self.init_op = tf.variables_initializer(model_vars)
+
+                self.saver = tf.train.Saver(var_list=model_vars,
+                                            max_to_keep=50)
 
         # Add all the other common code for the initialization here
-        gpu_options = tf.GPUOptions(allow_growth=True)
-        sessConfig = tf.ConfigProto(gpu_options=gpu_options)
-        self.sess = tf.Session(config=sessConfig, graph=self.graph)
-        self.writer = tf.summary.FileWriter(self.result_dir, self.sess.graph)
+        self.writer = tf.summary.FileWriter(self.result_dir, self.graph)
 
         # This function is not always common to all models, that's why it's again
         # separated from the __init__ one
-        self.init()
         # At the end of this function, you want your model to be ready!
 
     def set_model_props(self):
@@ -72,17 +72,17 @@ class BasicModel(object):
     def build_graph(self, graph):
         raise Exception('The build_graph function must be overriden by the agent')
 
-    def inference_iter(self, inputs):
+    def inference_iter(self, inputs, sess):
         raise Exception('The infer function must be overriden by the agent')
 
-    def validation_iter(self, inputs):
+    def validation_iter(self, inputs, sess):
         raise Exception('The infer function must be overriden by the agent')
 
-    def learning_iter(self, dataset: Dataset):
+    def learning_iter(self, dataset: Dataset, sess):
         # I like to separate the function to train per epoch and the function to train globally
         raise Exception('The learn_from_epoch function must be overriden by the agent')
 
-    def train(self, dataset: Dataset, epoch_to_restart=-1, epoch_to_stop=float("inf")):
+    def train(self, sess, dataset: Dataset, epoch_to_restart=-1, epoch_to_stop=float("inf")):
         # This function is usually common to all your models, Here is an example:
         for epoch_id in range(max(0, epoch_to_restart), min(self.max_epoch, epoch_to_stop)):
             for _ in range(self.nb_iter):
@@ -94,30 +94,29 @@ class BasicModel(object):
             import os
             os.remove(self.result_dir)
 
-    def save(self):
+    def save(self, sess):
         # This function is usually common to all your models, Here is an example:
-        global_step = self.sess.run(tf.train.get_global_step(self.graph))
+        global_step = sess.run(tf.train.get_global_step(self.graph))
 
         if self.config['debug']:
             print('Saving to %s with global_step %d' % (self.result_dir, global_step))
 
-        self.saver.save(self.sess, self.result_dir + '/model-ep_' + str(global_step), global_step)
+        self.saver.save(sess, self.result_dir + '/model-ep_' + str(global_step), global_step)
 
         # I always keep the configuration
         if not os.path.isfile(self.result_dir + '/config.json'):
             with open(self.result_dir + '/config.json', 'w') as f:
                 json.dump(self.config, f)
 
-    def init(self):
+    def restore(self, sess):
         # This function is usually common to all your models
-        # but making separate than the __init__ function allows it to be overidden cleanly
+        # but making separate than the __init__ function allows it to be overridden cleanly
         # this is an example of such a function
         checkpoint = tf.train.get_checkpoint_state(self.result_dir)
         if checkpoint is None:
-            # print([n.name for n in self.sess.graph.as_graph_def().node])
-            self.sess.run(self.init_op)
+            sess.run(self.init_op)
         else:
 
             if self.config['debug']:
                 print('Loading the model from folder: %s' % self.result_dir)
-            self.saver.restore(self.sess, checkpoint.model_checkpoint_path)
+            self.saver.restore(sess, checkpoint.model_checkpoint_path)
