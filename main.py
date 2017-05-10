@@ -44,7 +44,7 @@ flags.DEFINE_string('result_dir', os.path.join(dir, "results", flags.FLAGS.model
                     'Name of the directory to store/log the model (if it exists, the model will be loaded from it)')
 
 # Another important point, you must provide an access to the random seed
-# to be able to fully reproduce an experiment
+# to be able to fully reproduce an experiment.
 flags.DEFINE_integer('random_seed', random.randint(0, sys.maxsize), 'Value of random seed')
 
 
