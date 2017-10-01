@@ -1,4 +1,4 @@
-from models.cifar_model import MNISTModel
+from models.mnist_model import MNISTModel
 from abc import ABCMeta, abstractmethod
 from math import log, ceil, floor
 import json, os, collections
