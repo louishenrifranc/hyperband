@@ -104,7 +104,6 @@ class BasicModel(object):
         # this is an example of such a function
         checkpoint = tf.train.get_checkpoint_state(self.result_dir)
         if checkpoint is None:
-            print("LLLAAAAAA")
             sess.run(self.init_op)
             return
 
