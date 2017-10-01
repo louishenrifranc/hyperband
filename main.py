@@ -16,7 +16,6 @@ dir = os.path.dirname(os.path.realpath(__file__))
 flags = tf.app.flags
 
 # Hyper-parameters search configuration
-flags.DEFINE_integer('nb_process', 4, 'Number of parallel process to perform a HP search')
 flags.DEFINE_bool('fullsearch', True, 'Explore Hyper Parameter Search')
 
 # fixed_params is a trick I use to be able to fix some parameters inside the model random function
@@ -24,7 +23,7 @@ flags.DEFINE_bool('fullsearch', True, 'Explore Hyper Parameter Search')
 flags.DEFINE_string('fixed_params', "{}", 'JSON inputs to fix some params in a HP search, ex: \'{"lr": 0.001}\'')
 
 # Agent configuration
-flags.DEFINE_string('model_name', 'CIFAR', 'Unique name of the model')
+flags.DEFINE_string('model_name', 'MNIST', 'Unique name of the model')
 
 flags.DEFINE_float('keep_prob', 0.7, 'Dropout ratio')
 flags.DEFINE_float('lr', 1e-3, 'The learning rate of SGD')

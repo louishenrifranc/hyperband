@@ -1,4 +1,4 @@
-from models.cifar_model import CIFARModel
+from models.cifar_model import MNISTModel
 from abc import ABCMeta, abstractmethod
 from math import log, ceil, floor
 import json, os, collections
@@ -42,14 +42,14 @@ class HyperBand(object):
             print("[DEBUG HYPERBAND] s_max = {}, B = {}".format(s_max, B))
 
         for s in reversed(range(s_max + 1)):
-            n = ceil((B * eta ** s) / (R * (s + 1)))
+            n = ceil(B / R / (s + 1) * eta ** s)
             r = R * eta ** -s
             print("[DEBUG HYPERBAND] Iteration s = {} n = {}, r = {}".format(s, n, r))
 
             models = self.get_hyperparameter_configuration(n)
 
             for i in range(s):
-                n_i = floor(n * eta * -i)
+                n_i = floor(n * eta ** -i)
                 r_i = floor(r * eta ** i)
                 self.run_then_return_val_loss(models, r_i)
                 models = self.top_k(models, keep_ratio=floor(n_i / eta))
@@ -71,27 +71,24 @@ class MNISTHyperband(HyperBand):
 
     def run_then_return_val_loss(self, models, r_i):
         for model_name, tup in models.items():
-            model = tup["model"]
+            tf.reset_default_graph()
+            model = self.build_model(tup["config"])
             last_epoch = tup["last_epoch"]
-            # If the model does not exists
 
             if last_epoch >= r_i:
                 continue
-            self.sess = tf.Session(graph=model.graph)
 
-            if model is None:
-                model = self.build_model(tup["config"])
+            with tf.Session() as sess:
+                model.restore(sess=sess)
+                model.train(sess=sess,
+                            dataset=self.dataset,
+                            epoch_to_restart=last_epoch,
+                            epoch_to_stop=r_i)
 
-            model.restore(sess=self.sess)
-            model.train(sess=self.sess,
-                        dataset=self.dataset,
-                        epoch_to_restart=last_epoch,
-                        epoch_to_stop=r_i)
-
-            tup["val_score"] = model.validation_iter(dataset=self.dataset,
-                                                     sess=self.sess)
-            tup["model"] = model
+                tup["val_score"] = model.validation_iter(dataset=self.dataset,
+                                                         sess=sess)
             tup["last_epoch"] = r_i
+            tup["model"] = model
 
     def get_hyperparameter_configuration(self, n):
         models = {}
@@ -122,7 +119,8 @@ class MNISTHyperband(HyperBand):
                 .replace("}", "") \
                 .replace(" ", "") \
                 .replace(",", "_") \
-                .replace(":", ".")
+                .replace(":", "-")
+
 
             # Uniquely defined model name
             new_config["model_name"] = model_unique_name
@@ -130,12 +128,11 @@ class MNISTHyperband(HyperBand):
             # Update dictionary of config
             new_config = update(self.default_config, new_config)
 
-            new_model = self.build_model(new_config)
 
             # Set accuracy to 0.0
             models[model_unique_name] = {
                 "config": new_config,
-                "model": new_model,
+                "model": None,
                 "last_epoch": 0,
                 "val_score": 0.0
             }
@@ -145,12 +142,11 @@ class MNISTHyperband(HyperBand):
         sorted_model = sorted(models.items(), key=lambda tup: tup[1]["val_score"])
 
         for model in sorted_model[keep_ratio:]:
-            models[model[0]]["model"] = None
+            models[model[0]]["model"].erase()
+            del models[model[0]]
         return models
 
     @staticmethod
     def build_model(new_config):
-        new_model = CIFARModel(new_config)
-        graph = tf.Graph()
-        new_model.build_graph(graph)
+        new_model = MNISTModel(new_config)
         return new_model
