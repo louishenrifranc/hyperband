@@ -25,6 +25,7 @@ class BasicModel(object):
         # All models share some basics hyper parameters, this is the section where we
         # copy them into the model
         self.result_dir = self.config['result_dir']
+        os.makedirs(self.result_dir, exist_ok=True)
         self.nb_iter = self.config['nb_iter']
         self.max_epoch = self.config['max_epoch']
         self.lr = self.config['lr']
@@ -41,27 +42,15 @@ class BasicModel(object):
         self.set_model_props()
 
         # Again, child Model should provide its own build_grap function
-        self.graph = self.build_graph(tf.Graph())
+        self.build_graph()
         # Init operation: Launch queue if necessary,
         # else initialized variables
-        with self.graph.as_default() as g:
-            with g.name_scope(self.config["model_name"]):
-                self.global_step = tf.get_variable("global_step", shape=(), dtype=tf.int32, trainable=False)
+        with tf.name_scope(self.config["model_name"]):
+            self.global_step = tf.get_variable("global_step", shape=(), dtype=tf.int32, trainable=False)
 
-                all_vars = tf.global_variables()
-                model_vars = [k for k in all_vars if k.name.startswith(self.config["model_name"])]
-
-                self.init_op = tf.variables_initializer(model_vars)
-
-                self.saver = tf.train.Saver(var_list=model_vars,
-                                            max_to_keep=50)
-        tf.reset_default_graph()
-        # Add all the other common code for the initialization here
-        self.writer = tf.summary.FileWriter(self.result_dir, self.graph)
-
-        # This function is not always common to all models, that's why it's again
-        # separated from the __init__ one
-        # At the end of this function, you want your model to be ready!
+            all_vars = tf.global_variables()
+            self.init_op = tf.variables_initializer(all_vars)
+            self.saver = tf.train.Saver(var_list=all_vars, max_to_keep=50)
 
     def set_model_props(self):
         # This function is here to be overriden completely.
@@ -90,21 +79,23 @@ class BasicModel(object):
 
     def erase(self):
         if tf.gfile.Exists(self.result_dir):
-            import os
-            os.remove(self.result_dir)
+            import shutil
+            shutil.rmtree(self.result_dir)
 
     def save(self, sess):
         # This function is usually common to all your models, Here is an example:
-        global_step = sess.run(tf.train.get_global_step(self.graph))
+        global_step = sess.run(tf.train.get_global_step(tf.get_default_graph()))
 
         if self.config['debug']:
             print('Saving to %s with global_step %d' % (self.result_dir, global_step))
 
-        self.saver.save(sess, self.result_dir + '/model-ep_' + str(global_step), global_step)
+        model = os.path.join(self.result_dir, "model_{}".format(global_step))
+        self.saver.save(sess, model, global_step)
 
         # I always keep the configuration
-        if not os.path.isfile(self.result_dir + '/config.json'):
-            with open(self.result_dir + '/config.json', 'w') as f:
+        config = os.path.join(self.result_dir, "config.json")
+        if not os.path.isfile(config):
+            with open(config, 'w') as f:
                 json.dump(self.config, f)
 
     def restore(self, sess):
@@ -113,10 +104,9 @@ class BasicModel(object):
         # this is an example of such a function
         checkpoint = tf.train.get_checkpoint_state(self.result_dir)
         if checkpoint is None:
-            with self.graph.as_default():
-                sess.run(self.init_op)
-        else:
+            sess.run(self.init_op)
+            return
 
-            if self.config['debug']:
-                print('Loading the model from folder: %s' % self.result_dir)
-            self.saver.restore(sess, checkpoint.model_checkpoint_path)
+        if self.config['debug']:
+            print('Loading the model from folder: %s' % self.result_dir)
+        self.saver.restore(sess, checkpoint.model_checkpoint_path)
